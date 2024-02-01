@@ -1,0 +1,33 @@
+import argparse
+import torch.distributed as dist
+from mpi4py import MPI
+
+EPOCH = 10
+comm = 0
+config_file_path = 0
+global_rank = 0
+
+import os
+
+def parse_args():
+	inputp = argparse.ArgumentParser(description="Input")
+	inputp.add_argument('--deepspeed_config', type=str, default=None, 
+						help='Path to DeepSpeed config file')
+	inputp.add_argument('--local_rank', type=int, default=None, 
+						help='Local_rank for deepspeed, inside the node')
+	args = inputp.parse_args()
+	return args
+
+def update_constants():
+	args = parse_args()
+	
+	if args.deepspeed_config is not None:
+		global config_file_path
+		config_file_path = args.deepspeed_config
+		global global_rank
+		comm = MPI.COMM_WORLD
+		global_rank = comm.Get_rank()
+	print(global_rank)
+
+
+	

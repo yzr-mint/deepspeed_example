@@ -1,0 +1,23 @@
+#!/bin/bash -x
+#PBS -N test_deepspeed
+#PBS -l nodes=2:ppn=1:gpus=1
+#PBS -j oe
+#PBS -q gpu
+
+ROOT="/public/home/jiangy6/yezhr7/Deepspeed-test/"
+ENVIROMENT="/public/home/jiangy6/yezhr7/envd"
+
+> ${ROOT}"hosts.txt"
+while IFS= read -r line
+do
+  echo "$line slots=1" >> ${ROOT}"hosts.txt"
+done < $PBS_NODEFILE
+
+source /public/software/profile.d/cuda11.6_cudnn8.9.sh
+source /public/software/profile.d/compiler_gnu-7.2.0.sh
+conda init
+source ~/.bashrc
+conda activate $ENVIROMENT
+deepspeed --hostfile ${ROOT}"hosts.txt" ${ROOT}"pipline_test.py" \
+	--deepspeed_config ${ROOT}"deeps.json"                          
+nvidia-smi
