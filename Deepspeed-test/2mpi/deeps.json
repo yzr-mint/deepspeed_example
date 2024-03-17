@@ -1,0 +1,25 @@
+{
+  "train_micro_batch_size_per_gpu": 64,
+  "gradient_accumulation_steps": 1,
+  "optimizer": {
+    "type": "SGD",
+    "params": {
+      "lr": 0.01
+    }
+  },
+  "scheduler": {
+    "type": "WarmupDecayLR",
+    "params": {
+      "total_num_steps": 9000,
+      "warmup_min_lr": 0.0001,
+      "warmup_max_lr": 0.1,
+      "warmup_num_steps": 1000,
+      "warmup_type": "linear",
+      "last_batch_iteration": -1
+    }
+  },
+  "steps_per_print": 100,
+  "fp16": {
+    "enabled": false
+  }
+}

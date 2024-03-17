@@ -4,7 +4,7 @@ EPOCH = 10
 
 config_file_path = 0
 global_rank = 0
-
+root_dir = "/public/home/jiangy6/yezhr7/Deepspeed-test/"
 
 import os
 

@@ -1,15 +1,19 @@
 import  deepspeed
+import  torch.distributed
 
-import  torch
-from    torch import nn
-from    torch.nn import functional as F
-from    torch import optim
+import	torch
+from	torch import nn
+from	torch.nn import functional as F
 
-import  torchvision
-from    matplotlib import pyplot as plt
+import	torchvision
+
+import os, sys, inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir) 
 
 from    utils import plot_image, plot_curve, one_hot
-import	const_for_mpi as c
+import	constants as c
 
 c.update_constants()
 
@@ -27,19 +31,18 @@ train = torchvision.datasets.MNIST(c.root_dir + 'mnist_data', train=True, downlo
 							transform=torchvision.transforms.Compose([
 								torchvision.transforms.ToTensor(),
 								torchvision.transforms.Normalize(
-									(0.1307,), (0.3081,))
+									(0.1307,), (0.3081,)),	
 							]))
 
 test_batch_size = 64
 test_loader = torch.utils.data.DataLoader(
 	torchvision.datasets.MNIST(c.root_dir + 'mnist_data', train=False, download=True,
-							   transform=torchvision.transforms.Compose([
-								   torchvision.transforms.ToTensor(),
-								   torchvision.transforms.Normalize(
-									   (0.1307,), (0.3081,))
+								transform=torchvision.transforms.Compose([
+									torchvision.transforms.ToTensor(),
+									torchvision.transforms.Normalize(
+										(0.1307,), (0.3081,)),  
 							   ])),
 	batch_size=test_batch_size, shuffle=False)
-
 
 #这是建立神经网络
 class Net(nn.Module):
@@ -61,49 +64,60 @@ model_engine, optimizer, train_iter, lr_scheduler = deepspeed.initialize(
 	model				= model,
 	model_parameters	= model.parameters(),
 	config				= c.config_file_path,
-	training_data		= train,
+	training_data		= train
 )
 
 train_loss = []
 model_engine.train()
 for epoch in range(c.EPOCH):
 	for batch_idx, (x, y) in enumerate(train_iter):
-		x = x.to("cuda")
-		out = model_engine(x.view(x.size(0), 28*28))
 
-		loss = F.mse_loss(out, one_hot(y).to("cuda"))
+		x = x.to(model_engine.local_rank).view(x.size(0), 28*28)
+		y = one_hot(y).to(model_engine.local_rank).half()
 		
+		out = model_engine(x)
+
+		loss = F.mse_loss(out, y)
+
 		model_engine.backward(loss)
 		model_engine.step()
 		lr_scheduler.step()
 		
 		train_loss.append(loss.item())
 
+	if c.global_rank == 0:	
+		current_memory_allocated = torch.cuda.memory_allocated() / (1024 ** 3)  # 转换为GB
+		max_memory_allocated = torch.cuda.max_memory_allocated() / (1024 ** 3)  # 转换为GB
+		torch.cuda.reset_peak_memory_stats()  # 重置最大显存统计，为下一个epoch准备
+		print(f'Epoch {epoch+1}/{c.EPOCH}:')
+		print(f'当前显存使用:			{current_memory_allocated:.2f} GB')
+		print(f'本epoch最大显存使用:	{max_memory_allocated:.2f} GB')
+
 
 if c.global_rank == 0:
 	print("here it is!")
 	plot_curve(train_loss)	
 
-	#准确度测试
-	model_engine.eval()
-	total_correct = 0
-	for x,y in test_loader:
-		x = x.to("cuda")
-		x = x.view(x.size(0), 28*28)
+model_engine.eval()
+total_correct = 0
+for x,y in test_loader:
+	x = x.to(model_engine.local_rank).view(x.size(0), 28*28)
+	with torch.no_grad():
 		out = model_engine(x)
-		pred = out.argmax(dim=1)
-		correct = pred.eq(y.to("cuda")).sum().float().item()
-		total_correct += correct
+	pred = out.argmax(dim=1)
+	correct = pred.eq(y.to(model_engine.local_rank)).sum().float().item()
+	total_correct += correct
 
+if c.global_rank == 0:
 	total_num = len(test_loader.dataset)
 	acc = total_correct / total_num
 	print('test acc:', acc)
-	
-	#以下部分是在打印，打印一个图片与对应的预测结果
-	x, y = next(iter(test_loader))
-	xdev = x.to("cuda")
-	out = model_engine(xdev.view(x.size(0), 28*28))
-	pred = out.argmax(dim=1)
 
-	plot_image(x, pred, 'test')
+x, y = next(iter(test_loader))
+xdev = x.to(model_engine.local_rank)
+out = model_engine(xdev.view(x.size(0), 28*28))
+pred = out.argmax(dim=1)
+if c.global_rank == 0:
+	plot_image(x.cpu(), pred.cpu(), 'test')
+
 

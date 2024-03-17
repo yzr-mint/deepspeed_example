@@ -1,4 +1,3 @@
-from turtle import forward
 import  deepspeed
 
 from torch.utils.data import Dataset
@@ -10,8 +9,12 @@ from    torch import optim
 import  torchvision
 from    matplotlib import pyplot as plt
 
+import os, sys, inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir) 
+
 from    utils import *
-# 如果用NCCL的话，就import constants as c
 import	const_for_mpi as c
 
 c.update_constants()
@@ -60,6 +63,7 @@ test_loader = torch.utils.data.DataLoader(
 	batch_size=test_batch_size, shuffle=False)
 
 deepspeed.init_distributed()
+
 from deepspeed.pipe import PipelineModule, LayerSpec
 class ConnectedPipe(PipelineModule):
 	def __init__(self, num_classes=10, **kwargs):
@@ -83,6 +87,16 @@ model_engine, optimizer, train_loader, lr_scheduler = deepspeed.initialize(
 	config				= c.config_file_path,
 	training_data		= custom_dataset,
 )
+
+'''
+deepspeed 不负责搬运数据！
+for batch in train_iter:
+	# Assuming your batch contains input data and labels
+	data, labels = batch
+	print(data.device)  # This will print the device of the data tensor
+	break  # Only check the first batch for demonstration purposes
+print(next(model_engine.parameters()).device)
+'''
 
 train_loss = []
 train_iter = iter(train_loader)

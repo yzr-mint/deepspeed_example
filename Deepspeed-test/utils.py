@@ -10,8 +10,6 @@ def plot_curve(data):
     plt.ylabel('value')
     plt.savefig(root_dir + "train_loss")
 
-
-
 def plot_image(img, label, name):
     fig = plt.figure()
     for i in range(6):

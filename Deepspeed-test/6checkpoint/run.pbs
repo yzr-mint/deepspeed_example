@@ -14,10 +14,12 @@ do
 done < $PBS_NODEFILE
 
 source /public/software/profile.d/cuda11.6_cudnn8.9.sh
-source /public/software/profile.d/compiler_gnu-7.2.0.sh
-conda init
+source /public/software/profile.d/compiler_gnu-10.2.0.sh
 source ~/.bashrc
+
+conda init
 conda activate $ENVIROMENT
-deepspeed --hostfile ${ROOT}"hosts.txt" ${ROOT}"pipline_test.py" \
-	--deepspeed_config ${ROOT}"deeps.json"                          
+
+deepspeed --hostfile ${ROOT}"hosts.txt" ${ROOT}"6checkpoint/main.py" \
+	--deepspeed_config ${ROOT}"6checkpoint/deeps.json"
 nvidia-smi

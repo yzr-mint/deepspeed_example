@@ -1,2 +1,2 @@
-g11 slots=1
 g2 slots=1
+g1 slots=1
