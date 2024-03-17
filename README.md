@@ -1,2 +1,2 @@
-# distributed training on DCU
- Note for distributed training on DCU
+# deepspeed_example
+- Using DeepSpeed on an HPC system, which employs PBS for task submission control. 
